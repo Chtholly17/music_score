@@ -13,6 +13,9 @@ from scipy.spatial.distance import euclidean
 from scipy.fftpack import fft
 # from praatio import tgio
 from praatio import pitch_and_intensity
+from math import sqrt
+
+import converter
 # from praatio import tgio
 
 from get_mfcc_dtw import *
@@ -23,7 +26,14 @@ class featureExtract:
         self.NFFT = 512
         self.shift = 1
         
-    def forward_once(self,original,test):
+        
+    def forward_once(self,original,test,type = 'mp3'):
+        if type != 'wav':
+            converter.get_second_part_from_mp3_to_wav(original, 1.001, 10.001, 'origin.wav')
+            converter.get_second_part_from_mp3_to_wav(test, 1.001, 10.001, 'test.wav')
+            original = 'origin.wav'
+            test = 'test.wav'
+            
         ######### Original file reading and mfcc computation ##########
         (rate, ori_sig) = wav.read(original)
         ori_sig = ori_sig / 32768.0
@@ -57,27 +67,23 @@ class featureExtract:
 
         ########## Compute DTW on mfcc ################
         distance, path = fastdtw(mfcc_original, mfcc_test, radius=1, dist=mfcc_dist)
-
-        self.mfccDTW = distance
         ############ MFCC frame disturbance array ##############
+        # optimal path of mfcc frames
         mfcc_frame_disturbance = FrameDisturbance(path)
 
         self.timbralDifference = distance
+        # print("timbralDifference: ",distance)
+        # L2 norm of mfcc frame disturbance
         self.rhythmDisturbance = np.linalg.norm(mfcc_frame_disturbance, ord=2)
+        # print("rhythmDisturbance: ",self.rhythmDisturbance)
+        # L2+L6-norm of mfcc frame disturbance
         self.perceptualRhythmDisturbance = CalcPESQnorm(mfcc_frame_disturbance)
+        # print("perceptualRhythmDisturbance: ",self.perceptualRhythmDisturbance)
 
-
-        
 
         #############VOLUME####################################
         volume_dist = VolumeDistance(ori_sig, test_sig, rate)
-        vibrato_section_disturbance = FrameDisturbance(path)
-
-        self.vibratoDist = np.linalg.norm(vibrato_section_disturbance, ord=2)
-        self.perceptualVibratoDist = CalcPESQnorm(vibrato_section_disturbance) # L2+L6-norm
-        self.vibratoDiff = distance
-
-        ### Append Volume Distance Feature
+        # print("volume_dist: ",volume_dist)
         self.volumeDist = volume_dist
 
         #############EMOLINA's Rhythm Calc#####################
@@ -88,7 +94,76 @@ class featureExtract:
         emolina_rhythm_mfcc_distance = EmolinaRhythm_mfcc(ori_sig, test_sig, rate, window)
         ### Emolina's rhythm distance
         self.emolinaRhythm = emolina_rhythm_mfcc_distance
+        # print("emolinaRhythm: ",self.emolinaRhythm)
         
-        self.distance_features = [self.timbralDifference, self.vibratoDiff,self.emolinaRhythm,self.volumeDist]
-        self.raw_disturbance_features = [self.rhythmDisturbance, self.vibratoDist]
-        self.perceptual_disturbance_features = [self.perceptualRhythmDisturbance, self.perceptualVibratoDist]
+        self.distance_features = [self.timbralDifference,self.emolinaRhythm,self.volumeDist]
+        self.raw_disturbance_features = [self.rhythmDisturbance]
+        self.perceptual_disturbance_features = [self.perceptualRhythmDisturbance]
+        
+        # delete the wav file
+        os.remove(original)
+        os.remove(test)
+        
+    def total_score(self):
+        dist = self.timbralDifference + self.emolinaRhythm + self.volumeDist
+        score = 10000000 / dist
+        score = sqrt(score*100)
+        # clip the score to range [0,100]
+        if score > 100:
+            score = 100
+        elif score < 0:
+            score = 0
+        return score
+    
+    def print_all_scores(self):
+        precise_dist = (self.timbralDifference + self.rhythmDisturbance + self.perceptualRhythmDisturbance)/3
+        # clip the precise to range [0,80000]
+        if precise_dist > 80000:
+            precise_dist = 80000
+        elif precise_dist < 0:
+            precise_dist = 0
+        precise_score = (80000 * 10+1) / (precise_dist+1)
+        precise_score = sqrt(precise_score * 100)
+        precise_score = precise_score + 40
+        # clip the score to range [0,100]
+        if precise_score > 100:
+            precise_score = 100
+        elif precise_score < 0:
+            precise_score = 0
+        print("precise_score")
+        print(precise_score)
+        
+        quality_dist = self.emolinaRhythm
+        # clip the quality to range [0,2000000]
+        if quality_dist > 2000000:
+            quality_dist = 2000000
+        elif quality_dist < 0:
+            quality_dist = 0
+        quality_score = (2000000+1) / (quality_dist+1)
+        quality_score = sqrt(quality_score * 100)
+        quality_score = quality_score + 40
+        # clip the score to range [0,100]
+        if quality_score > 100:
+            quality_score = 100
+        elif quality_score < 0:
+            quality_score = 0
+        print("quality_score")
+        print(quality_score)
+        
+        pitch_dist = self.volumeDist
+        # clip the pitch to range [0,10000]
+        if pitch_dist > 10000:
+            pitch_dist = 10000
+        elif pitch_dist < 0:
+            pitch_dist = 0
+        pitch_score = (10000 * 10+1) / (pitch_dist+1)
+        pitch_score = sqrt(pitch_score * 100)
+        pitch_score = pitch_score + 40
+        # clip the score to range [0,100]
+        if pitch_score > 100:
+            pitch_score = 100
+        elif pitch_score < 0:
+            pitch_score = 0
+        print("pitch_score")
+        print(pitch_score)
+        # print("total score: ",self.total_score())

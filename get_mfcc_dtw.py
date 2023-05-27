@@ -45,9 +45,9 @@ def InitialFinalSilenceRemoved(sig):
     energy = []
     i = 0
     energy_index = []
-    print("type = ", sig.shape)
+    # print("type = ", sig.shape)
     sig = sig.reshape((-1))
-    print("type = ", sig.shape)
+    # print("type = ", sig.shape)
     while i < (len(sig) - window):
         chunk = sig[i:i + window][np.newaxis]
         #print("chunk shape = ", chunk.shape)
@@ -257,8 +257,8 @@ def plot_dtw_matrix_long(path, cost):
     ax.set_title('colorMap')
     # plt.imshow(cost)
     plt.imshow(cost, cmap='Greys', vmin=np.min(cost), vmax=np.max(cost),
-               extent=[0, np.shape(cost)[0], 0, np.shape(cost)[1]],
-               interpolation='nearest', origin='lower')
+            extent=[0, np.shape(cost)[0], 0, np.shape(cost)[1]],
+            interpolation='nearest', origin='lower')
     # ax.set_aspect('equal')
     if plot:
         plt.plot(path[0], path[1], 'r')
@@ -350,6 +350,7 @@ def adjust_pitch_tracks2(ori_time_pitch, test_time_pitch):
 
 def FrameDisturbance(path):
     disturbance = []
+
     for item in path:
         disturbance.append(item[0] - item[1])
     return disturbance
@@ -1032,8 +1033,6 @@ def EmolinaDistance(path):
 
     A = np.vstack([np.array(x), np.ones(len(x))]).T
     sol, res, rank, singular = np.linalg.lstsq(A, np.array(y))
-    plot_dtw_matrix(path, 'Molina\'s rhythm distance')
-
     return res[0]
 
 
