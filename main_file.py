@@ -131,6 +131,9 @@ def get_onlyGT(folder, GT_file):
 def getFeatures(original="wavfile_samples/reference_clip.wav", test='wavfile_samples/bad_clip.wav'):
     raw_disturbance_features, perceptual_disturbance_features, distance_features = get_features(original, test)
     result = list()
+    print(raw_disturbance_features)
+    print(raw_disturbance_features[0])
+    print(perceptual_disturbance_features)
     for elem in raw_disturbance_features[0]:
         result.append(round(elem, 2))
     for elem in perceptual_disturbance_features[0]:

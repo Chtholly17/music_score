@@ -66,21 +66,6 @@ def InitialFinalSilenceRemoved(sig):
     else:
         end_point_sample = (significant_indices[-1] + 1) * hop
     new_sig = sig[start_point_sample:end_point_sample + 1]
-    if plot:
-        plt.figure()
-        plt.subplot(3, 1, 1)
-        plt.plot(range(len(sig)), sig)
-        plt.ylabel('amplitude')
-        plt.title('Remove initial and final silences')
-        plt.subplot(3, 1, 2)
-        plt.plot(energy_index, energy)
-        plt.ylabel('energy')
-        plt.stem([start_point_sample, end_point_sample], [5, 5], 'k')
-        plt.subplot(3, 1, 3)
-        plt.plot(new_sig)
-        plt.ylabel('amplitude')
-        plt.xlabel('sample number')
-        plt.show()
     return new_sig
 
 
@@ -1077,17 +1062,6 @@ shift = 1
 plot = 0
 print_flag = 0
 
-def compute_mfcc(wavFile:str): 
-    (rate, sig) = wav.read(wavFile)
-    sig = sig / 32768.0
-    sig = sig - np.mean(sig)  # remove DC offset
-    window = NFFT / (rate * 1.0)
-    hop = window / 2.0
-    sig = InitialFinalSilenceRemoved(sig)
-    num_frames = int(np.floor(len(sig) / (rate * hop)))
-
-    mfcc_feat = mfcc(sig, rate * 1.0, winlen=window, winstep=hop, nfft=NFFT, numcep=num_mfcc)
-    return mfcc_feat
 
 
 def get_features(original:str, test:str):
@@ -1119,7 +1093,6 @@ def get_features(original:str, test:str):
     Nh = np.ceil((len(test_sig) - NFFT) / (
             num_ori_frames - 1))  # number of samples in a hop or frame shift # Make the two files of (approx) equal number of frames
     hop_test = Nh / rate  # hop in time #window/2.0 #
-
     mfcc_test = mfcc(test_sig, rate * 1.0, winlen=window, winstep=hop_test, nfft=NFFT,
                     numcep=13)  # test sig truncated by hop size because overlap is now different from 50%
     if num_mfcc == 39:
@@ -1129,9 +1102,6 @@ def get_features(original:str, test:str):
 
     ########## Compute DTW on mfcc ################
     distance, path = fastdtw(mfcc_original, mfcc_test, radius=1, dist=mfcc_dist)
-    title = 'DTW between length-adjusted MFCCs'
-
-    plot_dtw_matrix(path, title)
 
     ############ MFCC frame disturbance array ##############
     mfcc_frame_disturbance = FrameDisturbance(path)
@@ -1148,14 +1118,6 @@ def get_features(original:str, test:str):
     distance_features.append(distance)
     perceptual_disturbance_features.append(CalcPESQnorm(mfcc_frame_disturbance))
 
-    if plot:
-        plt.figure()
-        plt.plot(mfcc_frame_disturbance, linewidth=2)
-        plt.ylim(-90, 5)
-        plt.xlabel('Frames', fontsize=22)
-        plt.ylabel('MFCC dtw frame disturbance', fontsize=22)
-        plt.tick_params(labelsize=18)
-        plt.show()
 
     #############EMOLINA's Rhythm Calc#####################
     ## E. Molina, I. Barbancho, E. Gomez, A. M. Barbancho, and
@@ -1167,175 +1129,6 @@ def get_features(original:str, test:str):
     #############VOLUME####################################
     volume_dist = VolumeDistance(ori_sig, test_sig, rate)
 
-    # ############# PITCH PROCESSING ########################
-    # # ### Compensate for rhythm/making the two files with equal number samples
-    # # extract pitch from actual tracks, create an audio with only
-    # # those frame that contain valid pitch, and then apply dtw using this modified audio track,
-    # # and then extract final pitch for further processing.
-    # ###########################################################################################
-    # ### Extract Pitch Using Praat tool (autocorrelation-based pitch extraction)
-    # original_aftsilremov = runtime_filedumps + os.sep + 'ori_sig_aftsilrem.wav'
-    # test_aftsilremov = runtime_filedumps + os.sep + 'test_sig_aftsilrem.wav'
-
-    # wav.write(original_aftsilremov, rate, np.int16(ori_sig * 32767))
-    # wav.write(test_aftsilremov, rate, np.int16(test_sig * 32767))
-
-    # original_pitch_file = runtime_filedumps + os.sep + 'original.pitch'
-    # test_pitch_file = runtime_filedumps + os.sep + 'test.pitch'
-
-    # extract_pitch(original_aftsilremov, original_pitch_file, hop)
-    # extract_pitch(test_aftsilremov, test_pitch_file, hop)
-
-    # original_time_pitch_oldest = extract_time_pitch(original_pitch_file)
-    # test_time_pitch_oldest = extract_time_pitch(test_pitch_file)
-
-    # ### Write an audio file with only valid pitch frames
-    # original_valid_pitch_frames = runtime_filedumps + os.sep + 'original_valid_pitch.wav'
-    # test_valid_pitch_frames = runtime_filedumps + os.sep + 'test_valid_pitch.wav'
-    # WriteWavValidPitchFrames(ori_sig, rate, original_valid_pitch_frames, original_time_pitch_oldest)
-    # WriteWavValidPitchFrames(test_sig, rate, test_valid_pitch_frames, test_time_pitch_oldest)
-
-    # ### Remove low periodicity pitch frames
-    # original_highperiodicity = original_valid_pitch_frames.rstrip('.wav') + '_highperiodicity.wav'
-    # test_highperiodicity = test_valid_pitch_frames.rstrip('.wav') + '_highperiodicity.wav'
-    # original_time_pitch_validHighPer = ExtractHighPeriodicityPitchFrames(original_valid_pitch_frames, hop,
-    #                                                                     original_highperiodicity, 0.2)
-    # test_time_pitch_validHighPer = ExtractHighPeriodicityPitchFrames(test_valid_pitch_frames, hop, test_highperiodicity,
-    #                                                             0.5)
-
-    # ### E. Molina's rhythm distance based on pitch
-    # ## E. Molina, I. Barbancho, E. Gomez, A. M. Barbancho, and
-    # # L. J. Tardon, "Fundamental frequency alignment vs. note-based
-    # # melodic similarity for singing voice assessment," IEEE ICASSP, pp.
-    # # 744-748, 2013.
-    # emolina_rhythm_pitch_distance = EmolinaRhythm_pitch(original_time_pitch_validHighPer, test_time_pitch_validHighPer,
-    #                                                     rate, window)
-
-    # ### mfcc-based DTW with these new files
-    # ##Original
-    # (rate, ori_sig) = wav.read(original_highperiodicity)
-    # ori_sig = ori_sig / 32768.0
-    # ori_sig = ori_sig - np.mean(ori_sig)  # remove DC offset
-    # window = NFFT / (rate * 1.0)
-    # hop = window / 2.0
-
-    # mfcc_original = mfcc(ori_sig, rate * 1.0, winlen=window, winstep=hop, nfft=NFFT, numcep=13)
-
-    # ## Test
-    # (rate, test_sig) = wav.read(test_highperiodicity)
-    # test_sig = test_sig / 32768.0
-    # test_sig = test_sig - np.mean(test_sig)  # remove DC offset
-    # window = NFFT / (rate * 1.0)
-    # hop = window / 2.0
-
-    # mfcc_test = mfcc(test_sig, rate * 1.0, winlen=window, winstep=hop, nfft=NFFT, numcep=13)
-
-    # distance, path = fastdtw(mfcc_original, mfcc_test, radius=1, dist=mfcc_dist)
-    # title = 'DTW between raw MFCCs'
-
-    # ori_sig_mod, test_sig_mod = adjust_files(ori_sig, test_sig, path, hop, hop, rate)
-    # original_rhythm_compensated = runtime_filedumps + os.sep + 'original_rhythm_compensated.wav'
-    # test_rhythm_compensated = runtime_filedumps + os.sep + 'test_rhythm_compensated.wav'
-    # wav.write(original_rhythm_compensated, rate, np.int16(ori_sig_mod * 32767))
-    # wav.write(test_rhythm_compensated, rate, np.int16(test_sig_mod * 32767))
-
-    # ### Extract Pitch Using Praat tool (autocorrelation-based pitch extraction)
-    # original_pitch_file = runtime_filedumps + os.sep + 'original_comp.pitch'
-    # test_pitch_file = runtime_filedumps + os.sep + 'test_comp.pitch'
-    # extract_pitch(original_rhythm_compensated, original_pitch_file, 0.01)
-    # extract_pitch(test_rhythm_compensated, test_pitch_file, 0.01)
-
-    # original_time_pitch_old = extract_time_pitch(original_pitch_file)
-    # test_time_pitch_old = extract_time_pitch(test_pitch_file)
-
-    # original_time_pitch, test_time_pitch = adjust_pitch_tracks2(original_time_pitch_old, test_time_pitch_old)
-
-    # ### Pitch Plots
-    # plot_pitch_contour(original_time_pitch, test_time_pitch)
-
-    # ### Pitch distance computation
-    # disturbance, dist, pdisturbance = PitchDistanceComputation(original_time_pitch, test_time_pitch,
-    #                                                            'Raw Pitch Distance')
-    # raw_disturbance_features.append(disturbance)
-    # distance_features.append(dist)
-    # perceptual_disturbance_features.append(pdisturbance)
-    # ############ key compensation for pitch - method 1: Derivative ##############
-
-    # original_pitchderivative = PitchDerivative(original_time_pitch, shift)
-    # test_pitchderivative = PitchDerivative(test_time_pitch, shift)
-    # if plot:
-    #     plt.figure()
-    #     plt.subplot(2, 1, 1)
-    #     plt.plot(original_time_pitch[:, 0], original_time_pitch[:, 1])
-    #     plt.ylabel('Reference pitch contour\nx 100 (cents)')
-    #     plt.subplot(2, 1, 2)
-    #     plt.plot(original_time_pitch[:, 0], original_pitchderivative)
-    #     plt.ylabel('One frame pitch derivative\nx 100 (cents)')
-    #     plt.xlabel('Time (s)')
-    #     plt.show()
-    # disturbance, dist, pdisturbance = PitchDistanceComputation2(original_pitchderivative, test_pitchderivative,
-    #                                                             'Pitch Derivative distance')
-    # raw_disturbance_features.append(disturbance)
-    # distance_features.append(dist)
-    # perceptual_disturbance_features.append(pdisturbance)
-
-    # ############ key compensation for pitch - method 2: median Subtraction ##############
-    # original_time_pitchmediansubtracted = PitchMedianSubtraction(original_time_pitch)
-    # test_time_pitchmediansubtracted = PitchMedianSubtraction(test_time_pitch)
-
-    # plot_pitch_contour(original_time_pitchmediansubtracted, test_time_pitchmediansubtracted)
-    # if plot:
-    #     plt.figure()
-    #     plt.subplot(2, 1, 1)
-    #     plt.plot(original_time_pitch[:, 0], original_time_pitch[:, 1])
-    #     plt.plot(original_time_pitch[:, 0], np.zeros(len(original_time_pitch[:, 0])), '--r')
-    #     plt.ylabel('Reference pitch contour\nx 100 (cents)')
-    #     plt.subplot(2, 1, 2)
-    #     plt.plot(original_time_pitchmediansubtracted[:, 0], original_time_pitchmediansubtracted[:, 1])
-    #     plt.plot(original_time_pitchmediansubtracted[:, 0], np.zeros(len(original_time_pitchmediansubtracted[:, 0])),
-    #             '--r')
-    #     plt.ylabel('Median-subtracted pitch\ncontour x 100 (cents)')
-    #     plt.xlabel('Time (s)')
-    #     plt.show()
-
-    # disturbance, dist, pdisturbance = PitchDistanceComputation(original_time_pitchmediansubtracted,
-    #                                                         test_time_pitchmediansubtracted,
-    #                                                         'Pitch Median subtracted distance')
-    # raw_disturbance_features.append(disturbance)
-    # distance_features.append(dist)
-    # perceptual_disturbance_features.append(pdisturbance)
-
-    # ############# Pitch Dynamic Range ###############
-    # pitch_dynamic_range_dist = PitchDynamicRangeCompute(original_time_pitch, test_time_pitch)
-
-    ########### Vibrato detection and evaluation #################
-    # vibrato_features_original, vibrato_features_test = TestFileAdjust_forVibrato(original, test, NFFT)
-    # if np.shape(vibrato_features_original) == (3,):
-    #     vibrato_features_original = vibrato_features_original[np.newaxis]
-    #     vibrato_features_test = vibrato_features_test[np.newaxis]
-    # distance, path = fastdtw(vibrato_features_original, vibrato_features_test, radius=1, dist=mfcc_dist)
-    # plot_dtw_matrix(path, 'Vibrato DTW')
-    # vibrato_section_disturbance = FrameDisturbance(path)
-    # start_frame = 0
-    # stop_frame = len(vibrato_section_disturbance) - 1
-    # if print_flag:
-    #     print("Vibrato Segment Disturbance (L2-norm of the deviations in length-equalized vibrato feature vector) = ",
-    #         np.linalg.norm(vibrato_section_disturbance, ord=2))
-    #     print("Vibrato Segment Difference (Distance between length-equalized vibrato feature vectors) = ", distance)
-
-    # distance_features.append(distance)
-
-    # if plot:
-    #     plt.figure()
-    #     plt.plot(mfcc_frame_disturbance)
-    #     plt.xlabel('frames')
-    #     plt.ylabel('vibrato feature dtw frame disturbance')
-    #     plt.show()
-
-    ###### Vibrato evaluation - frame-based ####### NOT USED IN THE PAPER: CONCEPTUALLY THIS IS A NOISY AND UNRELIABLE FEATURE
-    # vibrato_features_original = ExtractVibratoFeatures(original_time_pitch)
-    # vibrato_features_test = ExtractVibratoFeatures(test_time_pitch)
-    # distance, path = fastdtw(vibrato_features_original, vibrato_features_test, radius=1, dist=mfcc_dist)
     plot_dtw_matrix(path, 'Vibrato DTW')
     vibrato_section_disturbance = FrameDisturbance(path)
     start_frame = 0
@@ -1396,5 +1189,8 @@ def get_features(original:str, test:str):
     # 9. E.Molina's Rhythm Distance based on mfcc
     # 10. E.Molina's Rhythm Distance based on pitch
 
+    print("Raw Disturbance Features = ", raw_disturbance_features)
+    print("Perceptual Disturbance Features = ", perceptual_disturbance_features)
+    print("Distance Features = ", distance_features)
     return np.array(raw_disturbance_features)[np.newaxis], np.array(perceptual_disturbance_features)[np.newaxis], \
         np.array(distance_features)[np.newaxis]

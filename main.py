@@ -5,7 +5,7 @@ import random
 import main_file
 import numpy as np
 import converter
-
+import featureExtract as fe
 # pp = Flask(__name__)
 #  CORS(app, supports_credentials=True)# 
 # app.route('/score', methods=["POST", "GET"])
@@ -35,6 +35,7 @@ import converter
 if __name__ == '__main__':
     converter.get_second_part_from_mp3_to_wav('1.mp3', 1.001, 10.001, '1.wav')
     converter.get_second_part_from_mp3_to_wav('2.mp3', 1.001, 10.001, '2.wav')
-    scores = np.array(main_file.getFeatures('1.wav', '2.wav'))
-    scores = np.mean(scores)
-    print(scores)
+    # scores = np.array(main_file.getFeatures('1.wav', '2.wav'))
+    # scores = np.mean(scores)
+    featureExtract = fe.featureExtract()   
+    featureExtract.forward_once('1.wav', '2.wav')
