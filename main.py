@@ -34,10 +34,10 @@ import sys
 #        return Response(json.dumps({'response': "this is a get."}), content_type='application/json')# 
 
 if __name__ == '__main__':
-    origin_path = sys.argv[1]
-    test_path = sys.argv[2]
-    # origin_path = '1.mp3'
-    # test_path = '5.mp3'
+    # origin_path = sys.argv[1]
+    # test_path = sys.argv[2]
+    origin_path = '1.mp3'
+    test_path = '5.mp3'
     featureExtract = fe.featureExtract() 
     featureExtract.forward_once(origin_path, test_path)  
     #score = featureExtract.total_score()
